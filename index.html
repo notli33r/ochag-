@@ -194,17 +194,21 @@
       <p>тёплое место для своих</p>
     </div>
     <div id="authErr" class="err"></div>
+    <div id="nameField" class="field hide">
+      <label>Как тебя зовут</label>
+      <input id="aName" placeholder="Например, Лёня" autocomplete="name">
+    </div>
     <div class="field">
-      <label>Имя</label>
-      <input id="aName" placeholder="Например, Лёня" autocomplete="username">
+      <label>Почта</label>
+      <input id="aEmail" type="email" placeholder="you@mail.ru" autocomplete="email">
     </div>
     <div class="field">
       <label>Пароль</label>
-      <input id="aPass" type="password" placeholder="придумай пароль" autocomplete="current-password">
+      <input id="aPass" type="password" placeholder="пароль" autocomplete="current-password">
     </div>
     <button id="authBtn" class="btn">Войти</button>
     <div class="switch">
-      <span id="switchTxt">Первый раз?</span> <b id="switchBtn">Создать аккаунт</b>
+      <span id="switchTxt">Нет аккаунта?</span> <b id="switchBtn">Создать</b>
     </div>
   </div>
 </div>
@@ -369,28 +373,21 @@ function showApp(){ $('auth').classList.add('hide'); $('configWarn').classList.a
 let signUpMode=false;
 $('switchBtn').onclick=()=>{
   signUpMode=!signUpMode;
+  $('nameField').classList.toggle('hide',!signUpMode);
   $('authBtn').textContent=signUpMode?'Создать аккаунт':'Войти';
-  $('switchTxt').textContent=signUpMode?'Уже есть аккаунт?':'Первый раз?';
-  $('switchBtn').textContent=signUpMode?'Войти':'Создать аккаунт';
+  $('switchTxt').textContent=signUpMode?'Уже есть аккаунт?':'Нет аккаунта?';
+  $('switchBtn').textContent=signUpMode?'Войти':'Создать';
   $('authErr').style.display='none';
 };
 
-// имя → стабильная «техническая» почта (реальная почта не нужна)
-async function nameToEmail(name){
-  const norm=name.trim().toLowerCase();
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(norm));
-  const hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
-  return 'u'+hex.slice(0,32)+'@ochag.app';
-}
-
 $('authBtn').onclick=async()=>{
-  const name=$('aName').value.trim(), pass=$('aPass').value;
+  const email=$('aEmail').value.trim(), pass=$('aPass').value, name=$('aName').value.trim();
   $('authErr').style.display='none';
-  if(!name) return showErr('Введи имя');
-  if(!pass||pass.length<4) return showErr('Пароль минимум 4 символа');
+  if(!email||!pass) return showErr('Введи почту и пароль');
+  if(signUpMode&&!name) return showErr('Как тебя зовут?');
+  if(signUpMode&&pass.length<6) return showErr('Пароль минимум 6 символов');
   $('authBtn').disabled=true;
   try{
-    const email=await nameToEmail(name);
     if(signUpMode){
       const{error}=await sb.auth.signUp({email,password:pass,options:{data:{display_name:name}}});
       if(error)throw error;
@@ -405,11 +402,11 @@ $('aPass').addEventListener('keydown',e=>{ if(e.key==='Enter')$('authBtn').click
 
 function showErr(m){const e=$('authErr');e.textContent=m;e.style.display='block';}
 function translateErr(m){
-  if(/Invalid login/i.test(m))return'Неверное имя или пароль';
-  if(/already registered|already exists|User already/i.test(m))return'Это имя занято — войди или выбери другое';
-  if(/Password should be|at least/i.test(m))return'Пароль слишком короткий';
+  if(/Invalid login/i.test(m))return'Неверная почта или пароль';
+  if(/already registered|already exists|User already/i.test(m))return'Эта почта уже занята — войди';
+  if(/Password should be|at least 6/i.test(m))return'Пароль минимум 6 символов';
   if(/signups? (not allowed|disabled)/i.test(m))return'Включи регистрацию в Supabase (Allow new users to sign up)';
-  if(/confirm/i.test(m))return'Выключи «Confirm email» в Supabase';
+  if(/Email not confirmed|confirm/i.test(m))return'Подтверди почту по ссылке из письма (или выключи Confirm email в Supabase)';
   if(/network|fetch|Failed to fetch/i.test(m))return'Нет связи — проверь интернет';
   return m;
 }
